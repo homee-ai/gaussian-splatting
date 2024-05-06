@@ -15,9 +15,15 @@ import json
 from utils.system_utils import searchForMaxIteration
 from scene.dataset_readers import sceneLoadTypeCallbacks
 from scene.gaussian_model import GaussianModel
+from scene.gaussian_mesh_model import GaussianMeshModel
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
 
+
+gaussianModel = {
+    "gs": GaussianModel,
+    "gs_mesh": GaussianMeshModel,
+}
 class Scene:
 
     gaussians : GaussianModel
@@ -41,7 +47,14 @@ class Scene:
         self.test_cameras = {}
 
         if os.path.exists(os.path.join(args.source_path, "sparse")):
-            scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.type, args.images, args.eval)
+            if args.gs_type == "gs_mesh":
+                scene_info = sceneLoadTypeCallbacks["Colmap_Mesh"](args.source_path, 
+                                                                   args.images, 
+                                                                   args.eval, 
+                                                                   args.num_splats, 
+                                                                   args.mesh_name)
+            else:
+                scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval)
         elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
             print("Found transforms_train.json file, assuming Blender data set!")
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval)
@@ -80,6 +93,7 @@ class Scene:
                                                            "iteration_" + str(self.loaded_iter),
                                                            "point_cloud.ply"))
         else:
+            # create gaussians from SfM point cloud
             self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent)
 
     def save(self, iteration):

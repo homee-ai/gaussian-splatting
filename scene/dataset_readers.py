@@ -8,6 +8,8 @@
 #
 # For inquiries contact  george.drettakis@inria.fr
 #
+import trimesh
+import torch
 
 import os
 import sys
@@ -21,7 +23,15 @@ import json
 from pathlib import Path
 from plyfile import PlyData, PlyElement
 from utils.sh_utils import SH2RGB
-from scene.gaussian_model import BasicPointCloud
+from utils.graphics_utils import BasicPointCloud, MeshPointCloud
+
+def rotx(t):
+    ''' 3D Rotation about the x-axis. '''
+    c = np.cos(t)
+    s = np.sin(t)
+    return np.array([[1, 0, 0],
+                     [0, c, -s],
+                     [0, s, c]])
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -36,7 +46,7 @@ class CameraInfo(NamedTuple):
     height: int
 
 class SceneInfo(NamedTuple):
-    point_cloud: BasicPointCloud
+    point_cloud: NamedTuple #BasicPointCloud
     train_cameras: list
     test_cameras: list
     nerf_normalization: dict
@@ -96,7 +106,7 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
 
         image_path = os.path.join(images_folder, os.path.basename(extr.name))
         image_name = os.path.basename(image_path).split(".")[0]
-        image = Image.open(image_path)
+        image = Image.open(image_path).convert('RGB')
 
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                               image_path=image_path, image_name=image_name, width=width, height=height)
@@ -129,9 +139,9 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, type, images, eval, llffhold=8):
-    sparse_folder = os.path.join("sparse", type)
-    print(f"read sparse data from {sparse_folder}")
+def readColmapSceneInfo(path, images, eval, llffhold=8):
+    sparse_folder = "sparse/online"
+
     try:
         cameras_extrinsic_file = os.path.join(path, sparse_folder, "images.bin")
         cameras_intrinsic_file = os.path.join(path, sparse_folder, "cameras.bin")
@@ -143,8 +153,8 @@ def readColmapSceneInfo(path, type, images, eval, llffhold=8):
         cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
 
-    reading_dir = "images" if images == None else images
-    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir))
+    images_dir = os.path.join(path, "images") if len(images) == 0 else images
+    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=images_dir)
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
 
     if eval:
@@ -256,7 +266,97 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
                            ply_path=ply_path)
     return scene_info
 
+def readColmapMeshSceneInfo(path, images, eval, num_splats, mesh_name, llffhold=8):
+    sparse_folder = "sparse/online"
+    try:
+        cameras_extrinsic_file = os.path.join(path, sparse_folder, "images.bin")
+        cameras_intrinsic_file = os.path.join(path, sparse_folder, "cameras.bin")
+        cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
+        cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
+    except:
+        cameras_extrinsic_file = os.path.join(path, sparse_folder, "images.txt")
+        cameras_intrinsic_file = os.path.join(path, sparse_folder, "cameras.txt")
+        cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)
+        cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
+
+    reading_dir = os.path.join(path, "images") if len(images) == 0 else images
+    print(f"Reading images from {reading_dir}")
+
+    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=reading_dir)
+    cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
+
+    if eval:
+        train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
+        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+    else:
+        train_cam_infos = cam_infos
+        test_cam_infos = []
+
+    nerf_normalization = getNerfppNorm(train_cam_infos)
+
+    total_pts = 0
+
+    print(f"Generating point cloud for mesh {mesh_name}...")
+    print(f"Number of splats: {num_splats}")
+    ply_path = os.path.join(path, f"points3d.ply")
+
+    mesh_scene = trimesh.load(f'{path}/{sparse_folder}/{mesh_name}.obj', force='mesh')
+    vertices = mesh_scene.vertices
+    print(f"Vertices: {vertices.shape}")
+    faces = mesh_scene.faces
+    print(f"Faces: {faces.shape}")
+    triangles = torch.tensor(mesh_scene.triangles).float()  # equal vertices[faces]
+    print(f"Triangles: {triangles.shape}")
+
+    is_arkit_data = True
+    if is_arkit_data:
+        vertices = np.einsum('ij,kj->ki', rotx(np.pi / 2), vertices)
+
+    num_pts_each_triangle = num_splats
+    num_pts = num_pts_each_triangle * triangles.shape[0]
+    total_pts += num_pts
+    print(f"Total points: {total_pts}")
+
+    # We create random points inside the bounds traingles
+    alpha = torch.rand(
+        triangles.shape[0],
+        num_pts_each_triangle,
+        3
+    )
+    print(f"Alpha: {alpha.shape}")
+
+    xyz = torch.matmul(
+        alpha,
+        triangles
+    )
+    print(f"XYZ: {xyz.shape}")
+    xyz = xyz.reshape(num_pts, 3)
+
+    shs = np.random.random((num_pts, 3)) / 255.0
+
+    pcd = MeshPointCloud(
+        alpha=alpha,
+        points=xyz,
+        colors=SH2RGB(shs),
+        normals=np.zeros((num_pts, 3)),
+        vertices=vertices,
+        faces=faces,
+        triangles=triangles.cuda()
+    )
+    storePly(ply_path, pcd.points, SH2RGB(shs) * 255)
+    
+    print(f"Generating random point cloud ({total_pts})...")
+
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path)
+    
+    return scene_info
+
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
+    "Colmap_Mesh": readColmapMeshSceneInfo,
     "Blender" : readNerfSyntheticInfo
 }

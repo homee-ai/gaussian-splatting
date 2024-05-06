@@ -119,7 +119,6 @@ def read_points3D_text(path):
                 rgbs[count] = rgb
                 errors[count] = error
                 count += 1
-
     return xyzs, rgbs, errors
 
 def read_points3D_binary(path_to_model_file):

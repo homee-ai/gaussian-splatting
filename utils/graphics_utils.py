@@ -19,6 +19,16 @@ class BasicPointCloud(NamedTuple):
     colors : np.array
     normals : np.array
 
+
+class MeshPointCloud(NamedTuple):
+    alpha: torch.Tensor
+    points: torch.Tensor
+    colors: np.array
+    normals: np.array
+    vertices: np.array
+    faces: np.array
+    triangles: torch.Tensor
+    
 def geom_transform_points(points, transf_matrix):
     P, _ = points.shape
     ones = torch.ones(P, 1, dtype=points.dtype, device=points.device)
