@@ -343,20 +343,18 @@ class GaussianModel:
         scale = self._scaling.detach().cpu().numpy()
         rotation = self._rotation.detach().cpu().numpy()
 
-        # Filter out points where z value is less than 2
-        print("max z value : ", xyz[:, 2].max())
-        mask = xyz[:, 2] <= 0.7
-        print("Number of points after filtering : ", mask.sum())
-        xyz = xyz[mask]
-        xyz = np.einsum('ij,kj->ki', rotx(np.pi / 2), xyz)
-
+        # # Filter out points where z value is less than 2
+        # print("max z value : ", xyz[:, 2].max())
+        # mask = xyz[:, 2] <= 0.7
+        # print("Number of points after filtering : ", mask.sum())
+        # xyz = xyz[mask]
         
-        normals = normals[mask]
-        f_dc = f_dc[mask]
-        f_rest = f_rest[mask]
-        opacities = opacities[mask]
-        scale = scale[mask]
-        rotation = rotation[mask]
+        # normals = normals[mask]
+        # f_dc = f_dc[mask]
+        # f_rest = f_rest[mask]
+        # opacities = opacities[mask]
+        # scale = scale[mask]
+        # rotation = rotation[mask]
 
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
 
