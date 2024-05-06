@@ -302,20 +302,15 @@ def readColmapMeshSceneInfo(path, images, eval, num_splats, mesh_name, llffhold=
 
     mesh_scene = trimesh.load(f'{path}/{sparse_folder}/{mesh_name}.obj', force='mesh')
     vertices = mesh_scene.vertices
-    print(f"Vertices: {vertices.shape}")
     faces = mesh_scene.faces
-    print(f"Faces: {faces.shape}")
     triangles = torch.tensor(mesh_scene.triangles).float()  # equal vertices[faces]
-    print(f"Triangles: {triangles.shape}")
 
-    is_arkit_data = True
-    if is_arkit_data:
-        vertices = np.einsum('ij,kj->ki', rotx(np.pi / 2), vertices)
+    # rotated y-up world frame to z-up world frame
+    vertices = np.einsum('ij,kj->ki', rotx(np.pi / 2), vertices)
 
     num_pts_each_triangle = num_splats
     num_pts = num_pts_each_triangle * triangles.shape[0]
     total_pts += num_pts
-    print(f"Total points: {total_pts}")
 
     # We create random points inside the bounds traingles
     alpha = torch.rand(
@@ -323,13 +318,11 @@ def readColmapMeshSceneInfo(path, images, eval, num_splats, mesh_name, llffhold=
         num_pts_each_triangle,
         3
     )
-    print(f"Alpha: {alpha.shape}")
 
     xyz = torch.matmul(
         alpha,
         triangles
     )
-    print(f"XYZ: {xyz.shape}")
     xyz = xyz.reshape(num_pts, 3)
 
     shs = np.random.random((num_pts, 3)) / 255.0
