@@ -139,9 +139,9 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, images, eval, llffhold=8):
-    sparse_folder = "sparse/online"
-
+def readColmapSceneInfo(path, type, images, eval, llffhold=8):
+    sparse_folder = os.path.join("sparse", type)
+    print(f"read sparse data from {sparse_folder}")
     try:
         cameras_extrinsic_file = os.path.join(path, sparse_folder, "images.bin")
         cameras_intrinsic_file = os.path.join(path, sparse_folder, "cameras.bin")
@@ -266,8 +266,10 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
                            ply_path=ply_path)
     return scene_info
 
-def readColmapMeshSceneInfo(path, images, eval, num_splats, mesh_name, llffhold=8):
-    sparse_folder = "sparse/online"
+def readColmapMeshSceneInfo(path, type, images, eval, num_splats, mesh_name, llffhold=8):
+    sparse_folder = os.path.join("sparse", type)
+    print(f"read sparse data from {sparse_folder}")
+
     try:
         cameras_extrinsic_file = os.path.join(path, sparse_folder, "images.bin")
         cameras_intrinsic_file = os.path.join(path, sparse_folder, "cameras.bin")
