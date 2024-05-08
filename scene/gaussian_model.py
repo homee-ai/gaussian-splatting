@@ -8,18 +8,105 @@
 #
 # For inquiries contact  george.drettakis@inria.fr
 #
+import os
+import math
 
 import torch
+import torch.nn as nn
 import numpy as np
-from utils.general_utils import inverse_sigmoid, get_expon_lr_func, build_rotation
-from torch import nn
-import os
-from utils.system_utils import mkdir_p
+import tinycudann as tcnn
+
 from plyfile import PlyData, PlyElement
+
+from utils.system_utils import mkdir_p
 from utils.sh_utils import RGB2SH
 from simple_knn._C import distCUDA2
 from utils.graphics_utils import BasicPointCloud
-from utils.general_utils import strip_symmetric, build_scaling_rotation
+from utils.general_utils import (strip_symmetric,
+                                 build_scaling_rotation,
+                                 inverse_sigmoid,
+                                 get_expon_lr_func,
+                                 build_rotation)
+from scene.dataset_readers import rotx
+
+
+class HashEncoding(nn.Module):
+    """Hash Grid Encoding used in Instant-NGP.
+    Implemented using tinycudann's Encoding
+
+    Args:
+        n_input_dim (int): Number of input dimensions
+        n_levels (int): Number of levels (resolutions)
+        n_features_per_level (int): Dimensionality of feature vector
+	                                stored in each level's entries.
+        log2_hashmap_size (int): If type is "Hash", is the base-2
+                                 logarithm of the number of elements
+                                 in each backing hash table.
+        coarsest_resolution (int): The resolution of the coarsest level
+                                   is coarsest_resolution^input_dims.
+        finest_resolution (int): The resolution of the finest level
+                                 is finest_resolution^input_dims.
+        interpolation (str): How to interpolate nearby grid lookups.
+                             Can be "Nearest", "Linear", or "Smoothstep"
+                             (for smooth derivaives)
+    """
+    def __init__(self,
+                 n_input_dim: int,
+                 type: str="Hash",
+                 n_levels: int=16,
+                 n_features_per_level: int=2,
+                 log2_hashmap_size: int=19,
+                 coarsest_resolution: int=32,
+                 finest_resolution: int=2048,
+                 interpolation: str="Linear") -> None:
+        super().__init__()
+        cfg = dict()
+        cfg['type'] = type
+        cfg['otype'] = "Grid"
+        cfg['n_levels'] = n_levels
+        cfg['n_features_per_level'] = n_features_per_level
+        cfg['log2_hashmap_size'] = log2_hashmap_size
+        cfg['base_resolution'] = coarsest_resolution
+        cfg['per_level_scale'] = math.exp((math.log(finest_resolution) - math.log(coarsest_resolution)) / (n_levels - 1))
+        cfg['interpolation'] = interpolation
+
+        # Every gaussian splatting postion is edcoded using hashtable.
+        # 1. (x,y,z) -> coarsest_level (32^3) hash -> trilinear 2 dim feature vector
+        # ..... 
+        # 2. (x,y,z) -> finest_level (2048^3) hash -> trilinear 2 dim feature vector
+        # 3. so one (x,y,z) will be encode to n_level*2 features
+        self.encoding = tcnn.Encoding(n_input_dim, cfg)
+        self.output_dim = n_levels * n_features_per_level
+        for k, v in cfg.items():
+            setattr(self, k, v)
+
+    def forward(self, pos: torch.Tensor) -> torch.Tensor:
+        r"""
+        Args:
+            pos (torch.Tensor): 2D or 3D coordinate.
+                                a tensor of shape (batch, N)
+
+        Returns:
+            features (torch.Tensor): embedded features.
+                                     a tensor of shape (batch, *, D)
+        """
+        ret_shape = pos.shape[:-1]
+        features = self.encoding(pos)
+        features = features.reshape(*ret_shape, -1)
+        return features.float()
+
+
+class Linear(nn.Module):
+    def __init__(self, pos_dim, app_dim, output_dim) -> None:
+        super().__init__()
+        # Since gaussian postion has no relevance with appearance, we use two different linear layers
+        self.pos_linear = nn.Linear(pos_dim, output_dim, bias=False)
+        self.app_linear = nn.Linear(app_dim, output_dim, bias=False)
+        self.register_parameter('bias', nn.Parameter(torch.zeros(output_dim)))
+
+    def forward(self, x):
+        return self.pos_linear(x['pos']) + self.app_linear(x['appearance']) + self.bias
+
 
 class GaussianModel:
 
@@ -40,8 +127,26 @@ class GaussianModel:
 
         self.rotation_activation = torch.nn.functional.normalize
 
+    def __init__(self, sh_degree : int, use_img_feats: bool = False):
+        print(f"use_img_feats: {use_img_feats}")
+        # create image-dependent sh features
+        # assuming the number of training image is 10000 or less
+        self.pos_emb = HashEncoding(3)
+        self.appearance_vec = nn.Parameter(1e-4 * torch.randn((10000, 32)).float().cuda())
+        self.mlp = nn.Sequential(Linear(self.pos_emb.output_dim, 32, 64),
+                                    nn.ReLU(True),
+                                    nn.Linear(64, 64),
+                                    nn.ReLU(True),
+                                    nn.Linear(64, 3 * (sh_degree + 1) ** 2, bias=False)).cuda()
+        for m in self.mlp.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+        nn.init.zeros_(self.mlp[-1].weight)
 
-    def __init__(self, sh_degree : int):
+        self.use_img_feats = use_img_feats
+
         self.active_sh_degree = 0
         self.max_sh_degree = sh_degree  
         self._xyz = torch.empty(0)
@@ -110,9 +215,39 @@ class GaussianModel:
         features_rest = self._features_rest
         return torch.cat((features_dc, features_rest), dim=1)
     
+    def get_image_features(self, frame_idx):
+        xyz = self.get_xyz
+        xyz_emb = self.pos_emb(xyz.detach())
+        appearance_vec = self.appearance_vec[frame_idx]
+        global_sh = self.mlp(dict(pos=xyz_emb, appearance=appearance_vec))
+        global_sh = global_sh.reshape(xyz.shape[0], -1, 3)
+        return global_sh
+    
     @property
     def get_opacity(self):
         return self.opacity_activation(self._opacity)
+    
+    def set_params(self, param_dict):
+        for key, param in param_dict.items():
+            if key == 'app_mlp':
+                self.mlp.load_state_dict(param)
+            elif key == 'app_pos_emb':
+                self.pos_emb.load_state_dict(param)
+            else:
+                setattr(self, '_'+key, nn.Parameter(param.requires_grad_(True).cuda()))
+
+    def requires_grad(self, flag: bool):
+        self._xyz.requires_grad_(flag)
+        self._rotation.requires_grad_(flag)
+        self._opacity.requires_grad_(flag)
+        self._features_dc.requires_grad_(flag)
+        self._features_rest.requires_grad_(flag)
+        if self.use_img_feats:
+            self.appearance_vec.requires_grad_(flag)
+            for p in self.mlp.parameters():
+                p.requires_grad_(flag)
+            for p in self.pos_emb.encoding.parameters():
+                p.requires_grad_(flag)
     
     def get_covariance(self, scaling_modifier = 1):
         return self.covariance_activation(self.get_scaling, scaling_modifier, self._rotation)
@@ -159,8 +294,16 @@ class GaussianModel:
             {'params': [self._scaling], 'lr': training_args.scaling_lr, "name": "scaling"},
             {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"}
         ]
+        self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15, weight_decay=0.0)
 
-        self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15)
+        if self.use_img_feats:
+            params = [{'params': [self.appearance_vec], 'lr': 1e-3, 'weight_decay': 0.0},
+                      {'params': self.mlp.parameters(), 'lr': 1e-3, 'weight_decay': 1e-4},
+                      {'params': self.pos_emb.parameters(), 'lr': 1e-2, 'eps': 1e-12}]
+            self.appearance_optim = torch.optim.AdamW(params, eps=1e-15)
+        else:
+            self.appearance_optim = None
+
         self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init*self.spatial_lr_scale,
                                                     lr_final=training_args.position_lr_final*self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
@@ -190,6 +333,7 @@ class GaussianModel:
 
     def save_ply(self, path):
         mkdir_p(os.path.dirname(path))
+        print("Number of points at current iterations : ", self._xyz.shape[0])
 
         xyz = self._xyz.detach().cpu().numpy()
         normals = np.zeros_like(xyz)
@@ -199,6 +343,19 @@ class GaussianModel:
         scale = self._scaling.detach().cpu().numpy()
         rotation = self._rotation.detach().cpu().numpy()
 
+        # # Filter out points where z value is less than 2
+        # print("max z value : ", xyz[:, 2].max())
+        # mask = xyz[:, 2] <= 0.7
+        # print("Number of points after filtering : ", mask.sum())
+        # xyz = xyz[mask]
+        
+        # normals = normals[mask]
+        # f_dc = f_dc[mask]
+        # f_rest = f_rest[mask]
+        # opacities = opacities[mask]
+        # scale = scale[mask]
+        # rotation = rotation[mask]
+
         dtype_full = [(attribute, 'f4') for attribute in self.construct_list_of_attributes()]
 
         elements = np.empty(xyz.shape[0], dtype=dtype_full)
@@ -206,6 +363,11 @@ class GaussianModel:
         elements[:] = list(map(tuple, attributes))
         el = PlyElement.describe(elements, 'vertex')
         PlyData([el]).write(path)
+
+        if self.use_img_feats:
+            torch.save(self.appearance_vec.data.detach().cpu(), os.path.join(os.path.dirname(path), 'appearance_vec.pt'))
+            torch.save(self.mlp.state_dict(), os.path.join(os.path.dirname(path), 'mlp.pt'))
+            torch.save(self.pos_emb.state_dict(), os.path.join(os.path.dirname(path), 'hash.pt'))
 
     def reset_opacity(self):
         opacities_new = inverse_sigmoid(torch.min(self.get_opacity, torch.ones_like(self.get_opacity)*0.01))
@@ -233,6 +395,12 @@ class GaussianModel:
             features_extra[:, idx] = np.asarray(plydata.elements[0][attr_name])
         # Reshape (P,F*SH_coeffs) to (P, F, SH_coeffs except DC)
         features_extra = features_extra.reshape((features_extra.shape[0], 3, (self.max_sh_degree + 1) ** 2 - 1))
+
+        if self.use_img_feats and os.path.exists(os.path.join(os.path.dirname(path), 'appearance_vec.pt')):
+            appearance_vec = torch.load(os.path.join(os.path.dirname(path), 'appearance_vec.pt'))
+            self.appearance_vec = nn.Parameter(appearance_vec.cuda())
+            self.mlp.load_state_dict(torch.load(os.path.join(os.path.dirname(path), 'mlp.pt')))
+            self.pos_emb.load_state_dict(torch.load(os.path.join(os.path.dirname(path), 'hash.pt')))
 
         scale_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("scale_")]
         scale_names = sorted(scale_names, key = lambda x: int(x.split('_')[-1]))
@@ -273,6 +441,8 @@ class GaussianModel:
     def _prune_optimizer(self, mask):
         optimizable_tensors = {}
         for group in self.optimizer.param_groups:
+            if '_img' in group["name"]:
+                continue
             stored_state = self.optimizer.state.get(group['params'][0], None)
             if stored_state is not None:
                 stored_state["exp_avg"] = stored_state["exp_avg"][mask]
@@ -308,6 +478,8 @@ class GaussianModel:
         optimizable_tensors = {}
         for group in self.optimizer.param_groups:
             assert len(group["params"]) == 1
+            if '_img' in group["name"]:
+                continue
             extension_tensor = tensors_dict[group["name"]]
             stored_state = self.optimizer.state.get(group['params'][0], None)
             if stored_state is not None:

@@ -23,9 +23,9 @@ def qvec2rotmat(qvec):
          2 * qvec[2] * qvec[3] + 2 * qvec[0] * qvec[1],
          1 - 2 * qvec[1]**2 - 2 * qvec[2]**2]])
 
-def arkit_pose_to_colmap(dataset_base) :
+def arkit_pose_to_colmap(dataset_base, file_name, output_folder) :
     images = {}
-    with open(dataset_base + "/sparse/0/images.txt", "r") as fid:
+    with open(dataset_base + "/sparse/0/" + file_name, "r") as fid:
         while True:
             line = fid.readline()
             if not line:
@@ -57,7 +57,7 @@ def arkit_pose_to_colmap(dataset_base) :
                                     [0, 0, 0, 1]]) @ c2w_cv
                 w2c_cv = np.linalg.inv(c2w_cv)
                 R = w2c_cv[:3, :3]
-                q = Quaternion(matrix=R, atol=1e-06)
+                q = Quaternion(matrix=R, atol=1e-05)
                 qvec = np.array([q.w, q.x, q.y, q.z])
                 tvec = w2c_cv[:3, -1]
                 images[image_id] = Image(
@@ -65,8 +65,7 @@ def arkit_pose_to_colmap(dataset_base) :
                     camera_id=camera_id, name=image_name,
                     xys=xys, point3D_ids=point3D_ids)
                 
-    write_images_text(images=images, path=dataset_base+"/post/sparse/online/images.txt")
-
+    write_images_text(images=images, path=dataset_base+"/post/sparse/" + output_folder + "/images.txt")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Optimize ARkit pose using hloc and COLMAP")
@@ -74,4 +73,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     input_database_path = args.input_database_path
-    arkit_pose_to_colmap(input_database_path)
+    arkit_pose_to_colmap(input_database_path, "images.txt", "online")
+    arkit_pose_to_colmap(input_database_path, "images_post.txt", "online_loop")

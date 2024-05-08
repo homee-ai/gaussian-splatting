@@ -63,7 +63,7 @@ if __name__ == "__main__":
     parser.add_argument("--input_base_path", type=str, default="data/homee/colmap")
 
     args = parser.parse_args()
-    input_ply_path = args.input_base_path + "/sparse/ARKitmesh.ply"
+    input_ply_path = args.input_base_path + "/sparse/0/ARKitmesh.ply"
     output_ply_path = args.input_base_path + "/post/sparse/online/points3D.txt"
 
     transformARkitPCL2COLMAPpoint3DwithZaxisUpward(input_ply_path, output_ply_path)

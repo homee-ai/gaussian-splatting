@@ -8,13 +8,16 @@
 #
 # For inquiries contact  george.drettakis@inria.fr
 #
+import os
+
+import numpy as np
 
 from scene.cameras import Camera
-import numpy as np
 from utils.general_utils import PILtoTorch
 from utils.graphics_utils import fov2focal
 
 WARNED = False
+
 
 def loadCam(args, id, cam_info, resolution_scale):
     orig_w, orig_h = cam_info.image.size
@@ -39,24 +42,32 @@ def loadCam(args, id, cam_info, resolution_scale):
         resolution = (int(orig_w / scale), int(orig_h / scale))
 
     resized_image_rgb = PILtoTorch(cam_info.image, resolution)
-
     gt_image = resized_image_rgb[:3, ...]
-    loaded_mask = None
 
+    loaded_mask = None
     if resized_image_rgb.shape[1] == 4:
         loaded_mask = resized_image_rgb[3:4, ...]
+    # if data is in a validation set, mask right-side pixels, as in Mega-NeRF
+    # See https://github.com/cmusatyalab/mega-nerf/issues/18 for more details
+    if os.path.exists(cam_info.image_path.replace('train/rgbs', 'val/rgbs')):
+        is_val = True
+    else:
+        is_val = False
 
+    is_val = False
     return Camera(colmap_id=cam_info.uid, R=cam_info.R, T=cam_info.T, 
                   FoVx=cam_info.FovX, FoVy=cam_info.FovY, 
                   image=gt_image, gt_alpha_mask=loaded_mask,
-                  image_name=cam_info.image_name, uid=id, data_device=args.data_device)
+                  image_name=cam_info.image_name, uid=id,
+                  data_device=args.data_device, is_val=is_val)
+
 
 def cameraList_from_camInfos(cam_infos, resolution_scale, args):
     camera_list = []
 
     for id, c in enumerate(cam_infos):
         camera_list.append(loadCam(args, id, c, resolution_scale))
-
+    camera_list = sorted(camera_list, key=lambda x: x.image_name)
     return camera_list
 
 def camera_to_JSON(id, camera : Camera):
