@@ -35,7 +35,7 @@ dataset
 ```
 
 ## Quick test
-1. Download testing data from here.
+1. Download testing data from [here](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/).
 2. Copy testing data to 3DGS repo. 
 3. Unzip testing data. 
 ```shell
