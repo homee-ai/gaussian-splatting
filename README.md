@@ -22,6 +22,7 @@ conda activate homee_3DGS
 ```
 
 ## data format
+Our loaders expect the following dataset structure in the source path location:
 ```shell
 dataset
 | ---- images
@@ -33,7 +34,32 @@ dataset
              | --- scene.obj (only for ARKit dataset)
 ```
 
-## Running
+## Quick test
+1. Download testing data from here.
+2. Copy testing data to 3DGS repo. 
+3. Unzip testing data. 
+```shell
+unzip data/tandt_db.zip 
+```
+4. Train
+```shell
+python train.py -s data/db/playroom/ -m output/playroom
+```
+
+## View result
+The output folder expect to be like the following dataset structure in the model path location:
+```shell
+output
+| ---- point_cloud 
+      | --- iteration_x
+            | --- point_cloud.ply
+            | --- ...
+      | --- ...
+| ---- ...
+```
+Download the trained scene (.ply) to local host and visulaized in [polycam](https://poly.cam/tools/gaussian-splatting)
+
+## Run on custom data
 
 To run the optimizer, simply use
 
@@ -56,3 +82,4 @@ python train.py -s <path to dataset> -t <folder name under sparse> -m <path to d
   Enable appearance modeling or not.
 </details>
 <br>
+
