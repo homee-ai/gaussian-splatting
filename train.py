@@ -245,8 +245,8 @@ if __name__ == "__main__":
     parser.add_argument('--appearance_modeling', action="store_true")
     # init gaussian from mesh params
     parser.add_argument('--gs_type', type=str, default="gs_mesh")
-    parser.add_argument("--num_splats", type=int, default=2)
-    parser.add_argument("--mesh_name", type=str, default="mesh")
+    parser.add_argument("--num_splats", type=int, default=5)
+    parser.add_argument("--mesh_name", type=str, default="scene")
     args = parser.parse_args(sys.argv[1:])
     lp.gs_type = args.gs_type
     lp.num_splats = args.num_splats
