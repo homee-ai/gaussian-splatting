@@ -61,9 +61,9 @@ output
 Download the trained scene (.ply) to local host and visulaized in [polycam](https://poly.cam/tools/gaussian-splatting)
 
 ## Run on ARKit data
-Download Homee ARKit data from [here](https://drive.google.com/drive/folders/12gE21_EQU7myRU-fAIZCSNQZk7geGH9I?usp=drive_link)
-To run the optimizer, simply use
+1. Download Homee ARKit data from [here](https://drive.google.com/drive/folders/12gE21_EQU7myRU-fAIZCSNQZk7geGH9I?usp=drive_link).
 
+2. To run the optimizer, simply use
 ```shell
 python train.py -s <path to dataset> -t <folder name under sparse> -m <path to desire output folder> --gs_type <gs or gs_mesh> --appearance_modeling
 ```
