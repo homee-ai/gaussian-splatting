@@ -60,8 +60,8 @@ output
 ```
 Download the trained scene (.ply) to local host and visulaized in [polycam](https://poly.cam/tools/gaussian-splatting)
 
-## Run on custom data
-
+## Run on ARKit data
+Download Homee ARKit data from [here](https://drive.google.com/drive/folders/12gE21_EQU7myRU-fAIZCSNQZk7geGH9I?usp=drive_link)
 To run the optimizer, simply use
 
 ```shell
