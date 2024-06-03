@@ -6,17 +6,18 @@ This repo try to improve [3DGS](https://repo-sam.inria.fr/fungraph/3d-gaussian-s
 The repository contains submodules, thus please check it out with 
 ```shell
 # SSH
-git clone git@github.com:graphdeco-inria/gaussian-splatting.git --recursive
+git clone git@github.com:homee-ai/gaussian-splatting.git --recursive
 ```
 or
 ```shell
 # HTTPS
-git clone https://github.com/graphdeco-inria/gaussian-splatting --recursive
+git clone https://github.com/homee-ai/gaussian-splatting.git --recursive
 ```
 
 ## Setup
 Our default, provided install method is based on Conda package and environment management:
 ```shell
+cd ngaussian-splatting/
 conda env create --file environment.yml
 conda activate homee_3DGS
 ```
@@ -43,7 +44,7 @@ unzip data/tandt_db.zip
 ```
 4. Train
 ```shell
-python train.py -s data/db/playroom/ -m output/playroom
+python train.py -s data/db/playroom/ -t 0 -m output/playroom --gs_type gs
 ```
 
 ## View result
@@ -82,4 +83,3 @@ python train.py -s <path to dataset> -t <folder name under sparse> -m <path to d
   Enable appearance modeling or not.
 </details>
 <br>
-
