@@ -17,7 +17,7 @@ git clone https://github.com/homee-ai/gaussian-splatting.git --recursive
 ## Setup
 Our default, provided install method is based on Conda package and environment management:
 ```shell
-cd ngaussian-splatting/
+cd gaussian-splatting/
 conda env create --file environment.yml
 conda activate homee_3DGS
 ```
