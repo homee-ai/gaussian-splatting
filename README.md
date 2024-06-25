@@ -23,18 +23,49 @@ conda activate homee_3DGS
 ```
 
 ## data format
-Our loaders expect the following dataset structure in the source path location:
+### preprocess
+Our preprocessor expects the following dataset structure in the source path location:
 ```shell
 dataset
-| ---- images
-| ---- sparse
-       | --- 0
-             | --- cameras.txt
-             | --- images.txt
-             | --- point3D.txt
-             | --- scene.obj (only for ARKit dataset)
+| ---- colmap
+      | ---- distort_images
+      | ---- sparse
+            | --- 0
+                  | --- calibration.json
+                  | --- distort_cameras.txt
+                  | --- images.txt
+                  | --- images_post.txt
+      | --- scene.obj (only for ARKit dataset)
 ```
 
+Run the preprocess script
+```shell
+bash run_arkit_3dgs.sh <path to desire dataset colmap folder> 
+```
+After preprocess, you will get the following dataset structure in the source path location:
+```shell
+dataset
+| ---- colmap
+      | ---- distort_images
+      | ---- sparse
+      | ---- post
+            | ---- images
+            | ---- sparse
+                  | ---- online
+                        | --- cameras.txt
+                        | --- images.txt
+                        | --- point3D.txt
+                  | ---- online_loop
+                        | --- cameras.txt
+                        | --- images.txt
+                        | --- point3D.txt
+      | --- scene.obj (only for ARKit dataset)
+```
+To run the optimizer, simply use
+```shell
+python train.py -s <path to dataset/colmap/post> -t <folder name under post/sparse> -m <path to desire output folder> --gs_type <gs or gs_mesh> --appearance_modeling
+```
+###
 ## Quick test
 1. Download testing data from [here](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/).
 2. Copy testing data to 3DGS repo. 
