@@ -300,9 +300,9 @@ def readColmapMeshSceneInfo(path, type, images, eval, num_splats, mesh_name, llf
 
     print(f"Generating point cloud for mesh {mesh_name}...")
     print(f"Number of splats: {num_splats}")
-    ply_path = os.path.join(path, f"points3d.ply")
+    ply_path = os.path.join(path, sparse_folder, f"points3d.ply")
 
-    mesh_scene = trimesh.load(f'{path}/{sparse_folder}/{mesh_name}.obj', force='mesh')
+    mesh_scene = trimesh.load(f'{path}/{mesh_name}.obj', force='mesh')
     vertices = mesh_scene.vertices
     faces = mesh_scene.faces
     triangles = torch.tensor(mesh_scene.triangles).float()  # equal vertices[faces]

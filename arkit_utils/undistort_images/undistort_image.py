@@ -168,5 +168,8 @@ if __name__ == "__main__":
 
     rectify_all_image(input_image_folder_path, distortion_param_json_path, output_image_folder_path, crop_x, crop_y)
     rectified_intrinsic(input_camera, output_camera, crop_x, crop_y)
+    output_camera = base_folder_path + "/post/sparse/online_loop/cameras.txt"
+    rectified_intrinsic(input_camera, output_camera, crop_x, crop_y)
+
 
     

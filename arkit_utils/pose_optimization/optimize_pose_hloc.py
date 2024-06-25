@@ -139,3 +139,5 @@ if __name__ == "__main__":
     ba_iterations = args.BA_iterations
     prepare_pose_and_intrinsic_prior(input_database_path)
     optimize_pose_by_hloc_and_COLMAP(input_database_path, ba_iterations)
+
+  

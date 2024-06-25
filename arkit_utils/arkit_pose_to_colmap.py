@@ -3,6 +3,7 @@ import numpy as np
 import os
 from pyquaternion import Quaternion
 from hloc.utils.read_write_model import Image, write_images_text
+from tqdm import tqdm
 
 def convert_pose(C2W):
     flip_yz = np.eye(4)
@@ -57,7 +58,7 @@ def arkit_pose_to_colmap(dataset_base, file_name, output_folder) :
                                     [0, 0, 0, 1]]) @ c2w_cv
                 w2c_cv = np.linalg.inv(c2w_cv)
                 R = w2c_cv[:3, :3]
-                q = Quaternion(matrix=R, atol=1e-05)
+                q = Quaternion(matrix=R, atol=1e-04)
                 qvec = np.array([q.w, q.x, q.y, q.z])
                 tvec = w2c_cv[:3, -1]
                 images[image_id] = Image(
@@ -73,5 +74,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     input_database_path = args.input_database_path
-    arkit_pose_to_colmap(input_database_path, "images.txt", "online")
-    arkit_pose_to_colmap(input_database_path, "images_post.txt", "online_loop")
+    output_folders = ["online", "online_loop"]
+
+    for output_folder in tqdm(output_folders, desc='Processing', leave=True):
+        arkit_pose_to_colmap(input_database_path, "images.txt", output_folder)

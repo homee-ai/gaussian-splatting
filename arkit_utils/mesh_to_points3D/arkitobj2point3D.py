@@ -1,6 +1,7 @@
 
 import numpy as np
 import argparse
+import tqdm
 
 def rotx(t):
     ''' 3D Rotation about the x-axis. '''
@@ -23,9 +24,9 @@ def transformARkitRgbPCL2COLMAPpoint3DwithRgbAndZaxisUpward(input_obj_path, outp
                 elems = line.split()
                 if elems[0] == "v":
                     num_points += 1
-    print(num_points)
+    # print(num_points)
     xyzs = np.empty((num_points, 3))
-    rgbs = np.empty((num_points, 3))
+    rgbs = np.zeros((num_points, 3))
 
     count = 0
     with open(input_obj_path, "r") as fid:
@@ -41,8 +42,8 @@ def transformARkitRgbPCL2COLMAPpoint3DwithRgbAndZaxisUpward(input_obj_path, outp
                     # rotated y-up world frame to z-up world frame
                     xyz = rotx(np.pi / 2) @ xyz
                     xyzs[count] = xyz
-                    rgb = np.array(tuple(map(float, elems[4:7])))
-                    rgbs[count] = rgb*255
+                    # rgb = np.array(tuple(map(float, elems[4:7])))
+                    # rgbs[count] = rgb*255
                     count+=1
 
 
@@ -53,11 +54,15 @@ def transformARkitRgbPCL2COLMAPpoint3DwithRgbAndZaxisUpward(input_obj_path, outp
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="transform ARKit texture mesh point cloud to COLMAP point3D format with RGB value and z-up coordinate")
-    parser.add_argument("--input_obj_path", type=str, default="data/homee/colmap/3dgs.obj")
-    parser.add_argument("--output_ply_path", type=str, default="data/homee/colmap/point3D.txt")
+    parser.add_argument("--input_base_path", type=str, default="data/homee/colmap")
 
     args = parser.parse_args()
-    input_obj_path = args.input_obj_path
-    output_ply_path = args.output_ply_path
+    input_obj_path = args.input_base_path + "/scene.obj"
 
-    transformARkitRgbPCL2COLMAPpoint3DwithRgbAndZaxisUpward(input_obj_path, output_ply_path)
+    output_ply_paths = [
+        args.input_base_path + "/post/sparse/online/points3D.txt",
+        args.input_base_path + "/post/sparse/online_loop/points3D.txt"
+    ]
+
+    for output_ply_path in tqdm.tqdm(output_ply_paths, desc='Processing', leave=True):
+        transformARkitRgbPCL2COLMAPpoint3DwithRgbAndZaxisUpward(input_obj_path, output_ply_path)

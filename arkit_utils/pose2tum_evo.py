@@ -1,5 +1,7 @@
 import numpy as np
 import struct
+import os
+import argparse
 
 def convert_pose(C2W):
     flip_yz = np.eye(4)
@@ -32,7 +34,7 @@ def rotmat2qvec(R):
         qvec *= -1
     return qvec
 
-def read_pose_txt(path):
+def read_pose_txt(path, output_prefix):
     txt_path = path + "images.txt"
     num_frames = 0
     with open(txt_path, "r") as fid:
@@ -41,7 +43,7 @@ def read_pose_txt(path):
             if not line:
                 break
             line = line.strip()
-            if len(line) > 0 and line[0] != "#":
+            if len(line) > 0 and line[0] != "#" and line[-1] == "g":  # line[-1] == "g" is for "image jpg or png"
                 num_frames += 1
 
     print(f"num of frames : {num_frames}")
@@ -55,7 +57,7 @@ def read_pose_txt(path):
             if not line:
                 break
             line = line.strip()
-            if len(line) > 0 and line[0] != "#":
+            if len(line) > 0 and line[0] != "#" and line[-1] == "g":
                 elems = line.split()
                 qxyz = np.array(tuple(map(float, elems[1:5])))
                 xyz = np.array(tuple(map(float, elems[5:8])))
@@ -78,7 +80,7 @@ def read_pose_txt(path):
                 xyzs[count] = xyz
                 count+=1
     
-    write_2_TUM_format(num_frames, xyzs, qxyzs, path+"est_tum.txt")
+    write_2_TUM_format(num_frames, xyzs, qxyzs, path+output_prefix+"_tum.txt")
 
 
 def read_next_bytes(fid, num_bytes, format_char_sequence, endian_character="<"):
@@ -171,12 +173,27 @@ def write_2_TUM_format(n, xyzs, qxyzs, path):
             f.write(line  + "\n")
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(description="transform ARKit pose to obj for meshLab visulization")
-    # parser.add_argument("--input_cameras_path", type=str)
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser(description="transform ARKit pose to obj for meshLab visulization")
+    parser.add_argument("--input_base_path", type=str)
+    args = parser.parse_args()
 
-    # input_cameras_path = args.input_cameras_path
+    input_base_path = args.input_base_path
 
-    # read_pose_txt("data/arkit_pose/meeting_room_loop_closure/arkit_colmap2/colmap_arkit/raw/")
-    read_pose_bin("data/arkit_pose/meeting_room_loop_closure/arkit_colmap/colmap_arkit/raw/colmap_ba/")
+    input_pose_path = input_base_path + "/post/sparse/online/"
+    if(os.path.exists(input_pose_path)):
+        print("online pose to tum")
+        read_pose_txt(input_pose_path, "online")
+
+    input_pose_path = input_base_path + "/post/sparse/online_loop/"
+    if(os.path.exists(input_pose_path)):
+        print("online loop pose to tum")
+        read_pose_txt(input_pose_path, "online_loop")
+
+    input_pose_path = input_base_path + "/post/sparse/offline/"
+    if(os.path.exists(input_pose_path)):
+        print("offline pose to tum")
+        read_pose_txt(input_pose_path, "offline")
+
+
+    # read_pose_bin("data/arkit_pose/meeting_room_loop_closure/arkit_colmap/colmap_arkit/raw/colmap_ba/")
 
