@@ -17,9 +17,14 @@ git clone https://github.com/homee-ai/gaussian-splatting.git --recursive
 ## Setup
 Our default, provided install method is based on Conda package and environment management:
 ```shell
-cd ngaussian-splatting/
+cd gaussian-splatting/
 conda env create --file environment.yml
 conda activate homee_3DGS
+
+# install hloc
+git clone --recursive https://github.com/cvg/Hierarchical-Localization/
+cd Hierarchical-Localization/
+python -m pip install -e .
 ```
 
 ## data format

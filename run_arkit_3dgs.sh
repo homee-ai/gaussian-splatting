@@ -32,7 +32,7 @@ echo "3. Transform ARKit pose to COLMAP coordinate"
 python arkit_utils/arkit_pose_to_colmap.py --input_database_path ${input_base_path}
 
 # echo "3. Optimize pose using hloc & COLMAP"
-# mkdir ${input_base_path}/post/sparse/offline
+# remove_and_create_folder ${input_base_path}/post/sparse/offline
 # python arkit_utils/pose_optimization/optimize_pose_hloc.py --input_database_path ${input_base_path}
 
 # echo "=== 3D gaussian splatting === "
