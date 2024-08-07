@@ -31,9 +31,21 @@ python arkit_utils/mesh_to_points3D/arkitobj2point3D.py --input_base_path ${inpu
 echo "3. Transform ARKit pose to COLMAP coordinate"
 python arkit_utils/arkit_pose_to_colmap.py --input_database_path ${input_base_path}
 
-# echo "3. Optimize pose using hloc & COLMAP"
+# echo "4. Optimize pose using hloc & COLMAP"
 # mkdir ${input_base_path}/post/sparse/offline
 # python arkit_utils/pose_optimization/optimize_pose_hloc.py --input_database_path ${input_base_path}
+
+# echo "4. Optimize pose using hloc & COLMAP"
+# mkdir ${input_base_path}/post/sparse/offline
+# python arkit_utils/pose_optimization/optimize_pose_hloc_lightglue.py --input_database_path ${input_base_path}
+
+# echo "4. Optimize pose using LOFTR & COLMAP"
+# mkdir ${input_base_path}/post/sparse/offline
+# python arkit_utils/pose_optimization/optimize_pose_loftr.py --input_database_path ${input_base_path}
+
+echo "4. Optimize pose using GLOMAP & COLMAP"
+mkdir ${input_base_path}/post/sparse/offline
+python arkit_utils/pose_optimization/optimize_pose_glomap.py --input_database_path ${input_base_path}
 
 # echo "=== 3D gaussian splatting === "
 # echo "1. 3DGS on online data"
