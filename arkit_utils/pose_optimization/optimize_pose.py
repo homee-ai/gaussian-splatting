@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, Tuple, List
 import logging
 import colorlog
+import time
+from tabulate import tabulate
 
 import pycolmap
 from hloc.utils.read_write_model import Camera, Image, Point3D, write_model, read_model
@@ -187,17 +189,22 @@ def optimize_pose(dataset_base: str,
     colmap_arkit = prepare_pose_and_intrinsic_prior(dataset_base)
     hloc_setups = setup_hloc(dataset_base, colmap_arkit, methods, n_matched)
 
+    processing_times = {}
+
     for method, (outputs, images, sfm_pairs, features, matches) in hloc_setups.items():
         logger.info(f"Optimizing pose using method: {method}")
+        start_time = time.time()
         if method == 'glomap':
             optimize_pose_glomap(outputs, images, colmap_arkit, sfm_pairs, features, matches)
             output_dir = outputs / 'final' / '0'
         else:
             optimize_pose_colmap(outputs, images, colmap_arkit, sfm_pairs, features, matches, n_ba_iterations, method)
             output_dir = outputs / 'final'
+        end_time = time.time()
+        processing_times[method] = end_time - start_time
 
         # Get BA results and write to external folder
-        colmap_arkit_base = outputs.parent
+        colmap_arkit_base = output_dir
         logger.info(f"Reading optimized model for {method}")
         cameras, images, point3D = read_model(output_dir, ext=".bin")
         
@@ -208,6 +215,12 @@ def optimize_pose(dataset_base: str,
         
         logger.info(f"Writing optimized model for {method}")
         write_model(sorted_cameras, sorted_images, sorted_point3D, colmap_arkit_base, ext=".txt")
+
+    # Print comparison table
+    table_data = [[method, f"{time:.2f} seconds"] for method, time in processing_times.items()]
+    table = tabulate(table_data, headers=["Method", "Processing Time"], tablefmt="grid")
+    print("\nComparison of Pose-Refining Methods:")
+    print(table)
 
 def optimize_pose_colmap(outputs: Path, 
                          images: Path, 
