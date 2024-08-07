@@ -6,9 +6,14 @@ from pathlib import Path
 def create_directory(path):
     os.makedirs(path, exist_ok=True)
 
-def copy_directory(src, dst):
+def copy_directory(src, dst, ext: str = "txt"):
     if os.path.exists(src):
-        shutil.copytree(src, dst, dirs_exist_ok=True)
+        os.makedirs(dst, exist_ok=True)
+        for item in os.listdir(src):
+            s = os.path.join(src, item)
+            d = os.path.join(dst, item)
+            if os.path.isfile(s) and item.endswith(f'.{ext}'):
+                shutil.copy2(s, d)
     else:
         print(f"Warning: Source directory {src} does not exist. Skipping this copy operation.")
 
