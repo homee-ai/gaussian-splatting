@@ -18,6 +18,7 @@ dependencies:
   - opencv
   - numba
   - colorlog
+  - tabulate
   - pyquaternion
   - setuptools=69.5.1
   - pip:
