@@ -45,9 +45,9 @@ dataset
 
 Run the preprocess script
 ```shell
-bash run_arkit_3dgs.sh <path to desire dataset colmap folder> 
+bash prepare_dataset.sh <path to desire dataset colmap folder> [<method1> <method2> ...]
 ```
-After preprocess, you will get the following dataset structure in the source path location:
+After preprocessing, you will get the following dataset structure in the source path location:
 ```shell
 dataset
 | ---- colmap
@@ -56,6 +56,20 @@ dataset
       | ---- post
             | ---- images
             | ---- sparse
+                  | ---- offline (if at least one pose-refining method is selected)
+                        | --- method1
+                              | --- final
+                                    | --- cameras.txt(bin)
+                                    | --- images.txt(bin)
+                                    | --- point3D.txt(bin)
+                              | --- ...
+                        | --- method2
+                              | --- final
+                                    | --- cameras.txt(bin)
+                                    | --- images.txt(bin)
+                                    | --- point3D.txt(bin)
+                              | --- ...
+                        | --- ...
                   | ---- online
                         | --- cameras.txt
                         | --- images.txt
@@ -65,6 +79,22 @@ dataset
                         | --- images.txt
                         | --- point3D.txt
       | --- scene.obj (only for ARKit dataset)
+| ---- <root>_nerfstudio (copy to directly train in nerfstudio)
+      | --- images
+      | --- colmap
+            | ---- arkit
+                  | ---- 0
+                        | --- cameras.txt
+                        | --- images.txt
+                        | --- point3D.txt
+            | ---- method1 (optional)
+                  | ---- 0
+                        | --- cameras.txt
+                        | --- images.txt
+                        | --- point3D.txt
+            | ---- method2 (optional)
+            | ---- ...
+      
 ```
 To run the optimizer, simply use
 ```shell
