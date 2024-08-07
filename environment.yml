@@ -17,6 +17,7 @@ dependencies:
   - trimesh
   - opencv
   - numba
+  - colorlog
   - pyquaternion
   - setuptools=69.5.1
   - pip:
