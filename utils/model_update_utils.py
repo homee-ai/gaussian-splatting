@@ -100,8 +100,19 @@ def meganerf2colmap(c2w: torch.Tensor, return_w2c: bool=True, reorder: bool=True
     return extrinsic
 
 
-def rendering(model, img_height, img_width, fovx, fovy, extrinsic, bg_color, sh_modifier=None, depth=False):
-    screenspace_points = torch.zeros_like(model.get_xyz, dtype=model.get_xyz.dtype, requires_grad=True, device="cuda") + 0
+def rendering(model, 
+              img_height, 
+              img_width, 
+              fovx, 
+              fovy, 
+              extrinsic, 
+              bg_color, 
+              sh_modifier=None, 
+              depth:bool=False):
+    screenspace_points = torch.zeros_like(model.get_xyz, 
+                                          dtype=model.get_xyz.dtype, 
+                                          requires_grad=True, 
+                                          device="cuda") + 0
     try:
         screenspace_points.retain_grad()
     except:

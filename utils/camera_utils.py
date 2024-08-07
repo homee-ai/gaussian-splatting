@@ -15,11 +15,14 @@ import numpy as np
 from scene.cameras import Camera
 from utils.general_utils import PILtoTorch
 from utils.graphics_utils import fov2focal
+from arguments import ModelParams
+from scene.dataset_readers import CameraInfo
+from typing import List
 
 WARNED = False
 
 
-def loadCam(args, id, cam_info, resolution_scale):
+def loadCam(args: ModelParams, id: int, cam_info: CameraInfo, resolution_scale: float) -> Camera:
     orig_w, orig_h = cam_info.image.size
 
     if args.resolution in [1, 2, 4, 8]:
@@ -62,7 +65,9 @@ def loadCam(args, id, cam_info, resolution_scale):
                   data_device=args.data_device, is_val=is_val)
 
 
-def cameraList_from_camInfos(cam_infos, resolution_scale, args):
+def cameraList_from_camInfos(cam_infos: List[CameraInfo], 
+                             resolution_scale: float, 
+                             args: ModelParams):
     camera_list = []
 
     for id, c in enumerate(cam_infos):

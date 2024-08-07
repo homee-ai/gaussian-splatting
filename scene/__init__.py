@@ -18,7 +18,7 @@ from scene.gaussian_model import GaussianModel
 from scene.gaussian_mesh_model import GaussianMeshModel
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
-
+from typing import List
 
 gaussianModel = {
     "gs": GaussianModel,
@@ -28,7 +28,11 @@ class Scene:
 
     gaussians : GaussianModel
 
-    def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
+    def __init__(self, args:ModelParams, 
+                 gaussians:GaussianModel,
+                 load_iteration=None, 
+                 shuffle:bool=True, 
+                 resolution_scales:List[float]=[1.0]):
         """b
         :param path: Path to colmap scene main folder.
         """

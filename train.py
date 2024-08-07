@@ -26,6 +26,7 @@ from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render, network_gui
 from scene import Scene, gaussianModel
 from utils.general_utils import safe_state, PILtoTorch
+from typing import List, Optional
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -33,7 +34,16 @@ except ImportError:
     TENSORBOARD_FOUND = False
 
 
-def training(gs_type, use_appearance_modeling, dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
+def training(gs_type: str, 
+             use_appearance_modeling: bool, 
+             dataset, 
+             opt, 
+             pipe, 
+             testing_iterations: List[int], 
+             saving_iterations: List[int], 
+             checkpoint_iterations: List[int], 
+             checkpoint: Optional[str], 
+             debug_from: int):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = gaussianModel[gs_type](dataset.sh_degree, use_appearance_modeling)
@@ -63,7 +73,11 @@ def training(gs_type, use_appearance_modeling, dataset, opt, pipe, testing_itera
         while network_gui.conn != None:
             try:
                 net_image_bytes = None
-                custom_cam, do_training, pipe.convert_SHs_python, pipe.compute_cov3D_python, keep_alive, scaling_modifer = network_gui.receive()
+                custom_cam, do_training, \
+                pipe.convert_SHs_python, \
+                pipe.compute_cov3D_python, \
+                keep_alive, \
+                scaling_modifer = network_gui.receive()
                 if custom_cam != None:
                     net_image = render(custom_cam, gaussians, pipe, background, scaling_modifer)["render"]
                     net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
@@ -116,6 +130,7 @@ def training(gs_type, use_appearance_modeling, dataset, opt, pipe, testing_itera
         Ll1 = l1_loss(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
 
+        # calculate gradient
         loss.backward()
 
         iter_end.record()
@@ -155,6 +170,9 @@ def training(gs_type, use_appearance_modeling, dataset, opt, pipe, testing_itera
                 if gaussians.appearance_optim is not None:
                     gaussians.appearance_optim.step()
                     gaussians.appearance_optim.zero_grad(set_to_none=True)
+                # if gaussians.camera_optim is not None:
+                #     gaussians.camera_optim.step()
+                #     gaussians.camera_optim.zero_grad(set_to_none=True)
 
             if (iteration in checkpoint_iterations):
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
