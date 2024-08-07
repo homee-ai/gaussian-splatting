@@ -200,8 +200,14 @@ def optimize_pose(dataset_base: str,
         colmap_arkit_base = outputs.parent
         logger.info(f"Reading optimized model for {method}")
         cameras, images, point3D = read_model(output_dir, ext=".bin")
+        
+        logger.info("Sorting cameras, images, and points3D")
+        sorted_cameras = dict(sorted(cameras.items()))
+        sorted_images = dict(sorted(images.items()))
+        sorted_point3D = dict(sorted(point3D.items()))
+        
         logger.info(f"Writing optimized model for {method}")
-        write_model(cameras, images, point3D, colmap_arkit_base, ext=".txt")
+        write_model(sorted_cameras, sorted_images, sorted_point3D, colmap_arkit_base, ext=".txt")
 
 def optimize_pose_colmap(outputs: Path, 
                          images: Path, 
