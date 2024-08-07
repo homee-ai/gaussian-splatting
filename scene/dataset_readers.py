@@ -13,6 +13,7 @@ import torch
 
 import os
 import sys
+from typing import List
 from PIL import Image
 from typing import NamedTuple
 from scene.colmap_loader import read_extrinsics_text, read_intrinsics_text, qvec2rotmat, \
@@ -75,12 +76,22 @@ def getNerfppNorm(cam_info):
 
     return {"translate": translate, "radius": radius}
 
-def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
+def readColmapCameras(cam_extrinsics: Dict, cam_intrinsics: Dict, images_folder: str) -> List[CameraInfo]:
+    """
+    Read COLMAP camera information and generate a list of CameraInfo objects.
+
+    Args:
+        cam_extrinsics (Dict): Dictionary containing camera extrinsic parameters.
+        cam_intrinsics (Dict): Dictionary containing camera intrinsic parameters.
+        images_folder (str): Path to the folder containing images.
+
+    Returns:
+        List[CameraInfo]: A list of CameraInfo objects containing camera information.
+    """
     cam_infos = []
     for idx, key in enumerate(cam_extrinsics):
         sys.stdout.write('\r')
-        # the exact output you're looking for:
-        sys.stdout.write("Reading camera {}/{}".format(idx+1, len(cam_extrinsics)))
+        sys.stdout.write(f"Reading camera {idx+1}/{len(cam_extrinsics)}")
         sys.stdout.flush()
 
         extr = cam_extrinsics[key]
@@ -92,11 +103,11 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
         R = np.transpose(qvec2rotmat(extr.qvec))
         T = np.array(extr.tvec)
 
-        if intr.model=="SIMPLE_PINHOLE":
+        if intr.model == "SIMPLE_PINHOLE":
             focal_length_x = intr.params[0]
             FovY = focal2fov(focal_length_x, height)
             FovX = focal2fov(focal_length_x, width)
-        elif intr.model=="PINHOLE":
+        elif intr.model == "PINHOLE":
             focal_length_x = intr.params[0]
             focal_length_y = intr.params[1]
             FovY = focal2fov(focal_length_y, height)
@@ -139,7 +150,20 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, type, images, eval, llffhold=8):
+def readColmapSceneInfo(path: str, type: str, images: str, eval: bool, llffhold: int = 8) -> SceneInfo:
+    """
+    Read COLMAP scene information and generate a SceneInfo object.
+
+    Args:
+        path (str): Base path to the COLMAP dataset.
+        type (str): Type of COLMAP reconstruction (e.g., 'text' or 'binary').
+        images (str): Path to the images directory.
+        eval (bool): Whether to split the dataset for evaluation.
+        llffhold (int, optional): Interval for selecting test images. Defaults to 8.
+
+    Returns:
+        SceneInfo: An object containing scene information, including cameras and point cloud data.
+    """
     sparse_folder = os.path.join("sparse", type)
     print(f"read sparse data from {sparse_folder}")
     try:
@@ -188,7 +212,19 @@ def readColmapSceneInfo(path, type, images, eval, llffhold=8):
                            ply_path=ply_path)
     return scene_info
 
-def readCamerasFromTransforms(path, transformsfile, white_background, extension=".png"):
+def readCamerasFromTransforms(path: str, transformsfile: str, white_background: bool, extension: str = ".png") -> List[CameraInfo]:
+    """
+    Read camera information from a transforms file and generate a list of CameraInfo objects.
+
+    Args:
+        path (str): Base path to the dataset.
+        transformsfile (str): Name of the transforms JSON file.
+        white_background (bool): Whether to use a white background for images.
+        extension (str, optional): Image file extension. Defaults to ".png".
+
+    Returns:
+        List[CameraInfo]: A list of CameraInfo objects containing camera parameters and image data.
+    """
     cam_infos = []
 
     with open(os.path.join(path, transformsfile)) as json_file:
@@ -229,8 +265,20 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
                             image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
             
     return cam_infos
+  
+def readNerfSyntheticInfo(path: str, white_background: bool, eval: bool, extension: str = ".png") -> SceneInfo:
+    """
+    Read NeRF synthetic dataset information and generate scene info.
 
-def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
+    Args:
+        path (str): Path to the NeRF synthetic dataset.
+        white_background (bool): Whether to use white background for images.
+        eval (bool): Whether to split data for evaluation.
+        extension (str, optional): Image file extension. Defaults to ".png".
+
+    Returns:
+        SceneInfo: Scene information including point cloud, camera info, and normalization data.
+    """
     print("Reading Training Transforms")
     train_cam_infos = readCamerasFromTransforms(path, "transforms_train.json", white_background, extension)
     print("Reading Test Transforms")
@@ -266,7 +314,22 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
                            ply_path=ply_path)
     return scene_info
 
-def readColmapMeshSceneInfo(path, type, images, eval, num_splats, mesh_name, llffhold=8):
+def readColmapMeshSceneInfo(path: str, type: str, images: str, eval: bool, num_splats: int, mesh_name: str, llffhold: int = 8) -> SceneInfo:
+    """
+    Read COLMAP mesh scene information and generate point cloud.
+
+    Args:
+        path (str): Path to the scene directory.
+        type (str): Type of COLMAP data (e.g., 'text' or 'binary').
+        images (str): Path to images directory.
+        eval (bool): Whether to split data for evaluation.
+        num_splats (int): Number of splats to generate per triangle.
+        mesh_name (str): Name of the mesh file.
+        llffhold (int, optional): Interval for selecting test images. Defaults to 8.
+
+    Returns:
+        SceneInfo: Scene information including point cloud, camera info, and normalization data.
+    """
     sparse_folder = os.path.join("sparse", type)
     print(f"read sparse data from {sparse_folder}")
 
@@ -303,8 +366,8 @@ def readColmapMeshSceneInfo(path, type, images, eval, num_splats, mesh_name, llf
     ply_path = os.path.join(path, sparse_folder, f"points3d.ply")
 
     mesh_scene = trimesh.load(f'{path}/{mesh_name}.obj', force='mesh')
-    vertices = mesh_scene.vertices
-    faces = mesh_scene.faces
+    vertices = mesh_scene.vertices # (num_pt, 3)
+    faces = mesh_scene.faces # (num_faces, 3)
     triangles = torch.tensor(mesh_scene.triangles).float()  # equal vertices[faces]
 
     # rotated y-up world frame to z-up world frame
