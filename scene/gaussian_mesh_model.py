@@ -70,7 +70,7 @@ class GaussianMeshModel(GaussianModel):
         For a point to be in the center of the vertex,
         the alphas must meet the assumptions:
         alpha1 + alpha2 + alpha3 = 1
-        and alpha1 + alpha2 +alpha3 >= 0
+        and alpha1, alpha2, alpha3 >= 0
 
         #TODO
         check:
@@ -96,7 +96,7 @@ class GaussianMeshModel(GaussianModel):
             xyz = torch.matmul(alpha, vertices[faces])
             print("Shape of xyz: ", xyz.shape)
             xyz = xyz.reshape(xyz.shape[0] * xyz.shape[1], 3)
-            print("re Shape of xyz: ", xyz.shape)
+            # print("re Shape of xyz: ", xyz.shape)
             return xyz
 
             
@@ -108,6 +108,13 @@ class GaussianMeshModel(GaussianModel):
         v0 is a normal vector to each face
         v1 is a vector from centroid of each face and 1st vertex
         v2 is obtained by orthogonal projection of a vector from centroid to 2nd vertex onto subspace spanned by v0 and v1
+
+        Arguments:
+        scale (torch.Tensor): float tensor with shape of [num_face * num_splat, 3]
+
+        returns:
+        rotations (torch.Tensor): float tensor with shape of [num_face * num_splat, 4]
+        scaling (torch.Tensor): float tensor with shape of [num_face * num_splat, 3]
         """
         def dot(v, u):
             return (v * u).sum(dim=-1, keepdim=True)
